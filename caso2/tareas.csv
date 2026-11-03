@@ -1,0 +1,8 @@
+# id;duracion;plazo;dependencias
+A;3;4;-
+B;2;5;A
+C;4;6;A
+D;1;9;B|C
+
+E;x;5;A
+F;2;5
