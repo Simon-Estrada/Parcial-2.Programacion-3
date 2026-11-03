@@ -1,19 +1,17 @@
 defmodule Validador do
 
-  def validar_todo(registros) do
-    {errores_parser, tareas} = separar_parser(registros, [], [])
+  def validar_y_reportar(registros, ruta_salida \\ "validacion_tareas.txt") do
+    {errores_parseo, tareas} = separar_parseo(registros, [], [])
 
-    if errores_parser != [] do
-      {:error, errores_parser}
-    else
-      errores_duplicados = validar_ids_duplicados(tareas, [])
-      errores_valores = validar_valores_numericos(tareas, [])
-      errores_autodep = validar_autodependencias(tareas, [])
-      errores_desconocidas = validar_dependencias_desconocidas(tareas, tareas, [])
-      errores_repetidas = validar_dependencias_repetidas(tareas, [])
-      errores_ciclos = detectar_ciclos(tareas, [])
+    errores_duplicados = validar_ids_duplicados(tareas, [])
+    errores_valores = validar_valores_numericos(tareas, [])
+    errores_autodep = validar_autodependencias(tareas, [])
+    errores_desconocidas = validar_dependencias_desconocidas(tareas, tareas, [])
+    errores_repetidas = validar_dependencias_repetidas(tareas, [])
+    errores_ciclos = detectar_ciclos(tareas)
 
-      resumen_errores =
+    todos_los_errores =
+      errores_parseo ++
         errores_duplicados ++
         errores_valores ++
         errores_autodep ++
@@ -21,78 +19,173 @@ defmodule Validador do
         errores_repetidas ++
         errores_ciclos
 
-      if resumen_errores == [] do
-        {:ok, tareas}
+    contenido_reporte = generar_contenido_reporte(todos_los_errores)
+    File.write(ruta_salida, contenido_reporte)
 
-      else
-        {:error, resumen_errores}
-      end
+    if todos_los_errores == [] do
+      {:ok, tareas}
+    else
+      {:error, "La red de tareas contiene errores. Consulta '#{ruta_salida}'."}
     end
   end
 
-  defp separar_parser([], errores, tareas), do: {inverso(errores, []), inverso(tareas, [])}
-  defp separar_parser([head | tail], errores, tareas) do
+
+  defp separar_parseo([], errores, tareas), do: {inverso(errores, []), inverso(tareas, [])}
+
+  defp separar_parseo([head | tail], errores, tareas) do
     case head do
       {:ok, linea, tarea} ->
-        separar_parser(tail, errores, [tarea | tareas])
-        {:error, linea, mensaje} ->
-          separar_parser(tail, [{linea, mensaje} | errores], tareas)
+        separar_parseo(tail, errores, [tarea | tareas])
+
+      {:error, linea, mensaje} ->
+        separar_parseo(tail, [{linea, "Error de sintaxis: #{mensaje}"} | errores], tareas)
     end
   end
 
   defp validar_ids_duplicados([], _revisados), do: []
-  defp validar_ids_duplicados([tarea | resto], revisados) do
-    if tiene_id?(revisados, tarea.id) do
-      [{"General", "El ID esta duplicado #{tarea.id}"} | validar_ids_duplicados(resto, revisados)]
+
+  defp validar_ids_duplicados([t | resto], revisados) do
+    if contiene?(revisados, t.id) do
+      [{"General", "ID duplicado detectado: #{t.id}"} | validar_ids_duplicados(resto, revisados)]
     else
-      validar_ids_duplicados(resto, [tarea.id | revisados])
+      validar_ids_duplicados(resto, [t.id | revisados])
     end
   end
 
-  defp tiene_id?([], _id), do: false
-  defp tiene_id?([head | tail], id) do
-    if head == id, do: true, else: tiene_id?(tail, id)
-  end
 
   defp validar_valores_numericos([], _acc), do: []
-  defp validar_valores_numericos([tarea | resto], acc) do
+
+  defp validar_valores_numericos([t | resto], acc) do
     errores = []
 
-    errores = if tarea.duracion == :invalido or tarea.duracion <= 0 do
-      [{"Tarea: #{tarea.id}", "Duracion invalida: debe tener un numero entero positivo."} | errores]
-    else
-      errores
-    end
+    errores =
+      if t.duracion == :invalido or t.duracion <= 0,
+        do: [{"Tarea #{t.id}", "Duración inválida (debe ser entera positiva)"} | errores],
+        else: errores
 
-    errores = if tarea.plazo == :invalido or tarea.plazo < 0 do
-      [["Tarea #{tarea.id}", "Plazo invalido: debe ser un numero entero no negativo"] | errores]
-    else
-      errores
-    end
+    errores =
+      if t.plazo == :invalido or t.plazo < 0,
+        do: [{"Tarea #{t.id}", "Plazo inválido (debe ser entero no negativo)"} | errores],
+        else: errores
 
     errores ++ validar_valores_numericos(resto, acc)
   end
 
+
   defp validar_autodependencias([], _acc), do: []
-  defp validar_autodependencias([tarea | resto], acc) do
-    if tiene_elemento?(tarea.dependencias, tarea.id) do
-      [{"Tarea #{tarea.id}", "La tarea depende de si misma :("} | validar_autodependencias(resto, acc)]
+
+  defp validar_autodependencias([t | resto], acc) do
+    if contiene?(t.dependencias, t.id) do
+      [{"Tarea #{t.id}", "La tarea depende de sí misma"} | validar_autodependencias(resto, acc)]
     else
       validar_autodependencias(resto, acc)
     end
   end
 
-  defp inverso([], acumulador), do: acumulador
-  defp inverso([head | tail], acumulador), do: inverso(tail, [head | acumulador])
+  defp validar_dependencias_desconocidas([], _todas, _acc), do: []
 
-  defp tiene_elemento?([], _elemento), do: false
-  defp tiene_elemento?([head | tail], elemento) do
-    if head == elemento, do: true, else: tiene_elemento?(tail, elemento)
+  defp validar_dependencias_desconocidas([t | resto], todas_tareas, acc) do
+    errores_depend = verificar_deps_en_lista(t.dependencias, todas_tareas, t.id)
+    errores_depend ++ validar_dependencias_desconocidas(resto, todas_tareas, acc)
   end
 
-  defp validar_dependencias_desconocidas(_t, _todas, _acc), do: []
-  defp validar_dependencias_repetidas(_t, _acc), do: []
-  defp detectar_ciclos(_t, _acc), do: []
+  defp verificar_deps_en_lista([], _todas, _id_tarea), do: []
+
+  defp verificar_deps_en_lista([depend | resto_deps], todas_tareas, id_tarea) do
+    if existe_tarea_id?(todas_tareas, depend) do
+      verificar_deps_en_lista(resto_deps, todas_tareas, id_tarea)
+    else
+      [
+        {"Tarea #{id_tarea}", "Dependencia desconocida: '#{depend}' no existe"}
+        | verificar_deps_en_lista(resto_deps, todas_tareas, id_tarea)
+      ]
+    end
+  end
+
+  defp validar_dependencias_repetidas([], _acc), do: []
+
+  defp validar_dependencias_repetidas([t | resto], acc) do
+    if tiene_duplicados?(t.dependencias) do
+      [
+        {"Tarea #{t.id}", "Tiene dependencias repetidas"}
+        | validar_dependencias_repetidas(resto, acc)
+      ]
+    else
+      validar_dependencias_repetidas(resto, acc)
+    end
+  end
 
 
+  defp detectar_ciclos(tareas) do
+    verificar_ciclos_en_nodos(tareas, tareas, [])
+  end
+
+  defp verificar_ciclos_en_nodos([], _todas, errores), do: inverso(errores, [])
+
+  defp verificar_ciclos_en_nodos([t | resto], todas, errores) do
+    if hay_ciclo_desde?(t.id, [t.id], todas) do
+      verificar_ciclos_en_nodos(resto, todas, [
+        {"Tarea #{t.id}", "Se detectó un ciclo en las dependencias"} | errores
+      ])
+    else
+      verificar_ciclos_en_nodos(resto, todas, errores)
+    end
+  end
+
+  defp hay_ciclo_desde?(id_actual, visitados, tareas) do
+    tarea = buscar_tarea(tareas, id_actual)
+
+    if tarea == nil or tarea.dependencias == [] do
+      false
+    else
+      recorrer_vecinos(tarea.dependencias, visitados, tareas)
+    end
+  end
+
+  defp recorrer_vecinos([], _visitados, _tareas), do: false
+
+  defp recorrer_vecinos([vecino | resto], visitados, tareas) do
+    cond do
+      contiene?(visitados, vecino) -> true
+      hay_ciclo_desde?(vecino, [vecino | visitados], tareas) -> true
+      true -> recorrer_vecinos(resto, visitados, tareas)
+    end
+  end
+  
+  defp inverso([], acc), do: acc
+  defp inverso([h | t], acc), do: inverso(t, [h | acc])
+
+  defp contiene?([], _elem), do: false
+
+  defp contiene?([h | t], elem) do
+    if h == elem, do: true, else: contiene?(t, elem)
+  end
+
+  defp existe_tarea_id?([], _id), do: false
+
+  defp existe_tarea_id?([t | resto], id) do
+    if t.id == id, do: true, else: existe_tarea_id?(resto, id)
+  end
+
+  defp buscar_tarea([], _id), do: nil
+
+  defp buscar_tarea([t | resto], id) do
+    if t.id == id, do: t, else: buscar_tarea(resto, id)
+  end
+
+  defp tiene_duplicados?([]), do: false
+
+  defp tiene_duplicados?([h | t]) do
+    if contiene?(t, h), do: true, else: tiene_duplicados?(t)
+  end
+
+  defp generar_contenido_reporte([]) do
+    "# Reporte de validación de tareas: Sin errores detectados.\n"
+  end
+
+  defp generar_contenido_reporte(errores) do
+    errores
+    |> Enum.map(fn {ubicacion, mensaje} -> "[#{ubicacion}] #{mensaje}\n" end)
+    |> Enum.join("")
+  end
 end
