@@ -4,6 +4,8 @@ Code.require_file("../FolderComun/reporte.ex")
 Code.require_file("tarea.ex")
 Code.require_file("lector_tareas.ex")
 Code.require_file("validador.ex")
+Code.require_file("planificacion.ex")
+Code.require_file("svg_gantt.ex")
 
 defmodule Caso2 do
 
@@ -35,9 +37,16 @@ defmodule Caso2 do
         Reporte.guardar_lineas(["Sin errores de validación (proyecto vacío)."], salida)
         Util2.mostrar("Proyecto vacío: no hay planes que enumerar.", :mensaje)
 
+        {:ok, resultado} = Planificador.generar_planes([], "planes.csv", "resumen_tareas.txt")
+         SvgGantt.generar_svg(resultado, resultado.tareas, "mejor_plan.svg")
+
+
       {:ok, tareas} ->
         Reporte.guardar_lineas(["Sin errores de validación."], salida)
         Util2.mostrar("Red de tareas válida (#{length(tareas)} tareas).", :mensaje)
+
+        {:ok, resultado} = Planificador.generar_planes(tareas, "planes.csv", "resumen_tareas.txt")
+        SvgGantt.generar_svg(resultado, resultado.tareas, "mejor_plan.svg")
 
       {:error, errores} ->
         Reporte.guardar_lineas(errores, salida)
@@ -45,6 +54,8 @@ defmodule Caso2 do
     end
   end
 end
+
+
 # Correcion final
 case System.argv() do
   [entrada] -> Caso2.main(entrada)
