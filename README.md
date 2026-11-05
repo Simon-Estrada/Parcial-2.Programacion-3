@@ -11,7 +11,7 @@ Parcial 2/
 ├── caso2/         tarea.ex, lector_tareas.ex, validador.ex, Caso_2.exs, tareas.csv
 └── caso4/         lector_propuestas.ex, validador_parentesis.ex, Caso_4.exs, propuestas.txt
 ```
-Para ejecutar el codigo debe hacerse desde la integral de cada carpeta, de esta manera:
+Para ejecutar el codigo debe hacerse desde la carpeta de cada caso, de esta manera:
 ```
 cd caso2
 elixir Caso_2.exs
@@ -20,3 +20,11 @@ cd ../caso4
 elixir Caso_4.exs
 ```
 Archivos de salida: `caso2/validacion_tareas.txt y caso4/verificacion_parentesis.txt.`
+# Nota:
+Como las validaciones se necesitan probar vamos a usar los siguientes comandos al compilar el caso 2, con el fin de probar diferentes situaciones donde el archivo csv este involucrado.
+```
+elixir Caso_2.exs                          
+elixir Caso_2.exs pruebas/invalido.csv     
+elixir Caso_2.exs pruebas/ciclos.csv      
+elixir Caso_2.exs pruebas/vacio.csv        
+elixir Caso_2.exs pruebas/noexiste.csv    
