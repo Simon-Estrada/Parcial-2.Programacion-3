@@ -51,18 +51,18 @@ defmodule Caso4 do
   defp generar_soluciones(ruta) do
     case LectorParametros.leer(ruta) do
       {:error, :no_existe} -> Reporte.archivo_faltante(ruta)
-      {:ok, flujo} -> Enum.each(flujo, &atender_parametro/1)
+      {:ok, flujo} -> Enum.each(flujo, &atender_parametro(&1, ruta))
     end
   end
 
-  defp atender_parametro({:error, linea, motivo}) do
-    Util2.mostrar("Error en parametros, línea #{linea}: #{motivo}", :error)
+  defp atender_parametro({:error, linea, motivo}, ruta) do
+    Util2.mostrar("Error en #{ruta}, línea #{linea}: #{motivo}", :error)
   end
 
-  defp atender_parametro({:ok, _linea, n, p}) do
-    ruta = "parentesis_n#{n}_p#{p}.txt"
-    total = EscritorParentesis.escribir_soluciones(n, p, ruta)
-    Util2.mostrar("n=#{n}, p=#{p}: total #{total} (archivo #{ruta})", :mensaje)
+  defp atender_parametro({:ok, _linea, n, p}, _ruta) do
+    archivo = "parentesis_n#{n}_p#{p}.txt"
+    total = EscritorParentesis.escribir_soluciones(n, p, archivo)
+    Util2.mostrar("n=#{n}, p=#{p}: total #{total} (archivo #{archivo})", :mensaje)
   end
 
   # ---- Primer elemento de n=18, p=18 ----
