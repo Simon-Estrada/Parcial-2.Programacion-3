@@ -32,4 +32,7 @@ defmodule Caso4 do
     Util2.mostrar("Verificación terminada. Resultados en #{salida}.", :mensaje)
   end
 end
-Caso4.main()
+case System.argv() do
+  [entrada] -> Caso4.main(entrada)
+  _ -> Caso4.main()
+end
