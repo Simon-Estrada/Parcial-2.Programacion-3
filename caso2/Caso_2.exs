@@ -46,4 +46,7 @@ defmodule Caso2 do
   end
 end
 
-Caso2.main()
+case System.argv() do
+  [entrada] -> Caso2.main(entrada)
+  _ -> Caso2.main()
+end

@@ -1,0 +1,12 @@
+# Varios errores para pruebas
+A;3;4;-
+B;2;5;A
+C;4;6;A
+D;1;9;B|C
+
+E;x;5;A
+F;2;5
+A;1;1;-
+G|H;2;5;A
+I;0;-2;I
+J;1;1;Z|Z
